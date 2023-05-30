@@ -11,11 +11,18 @@ target_sources(
   ${lib_name}
   PRIVATE
     dump_tokens.cpp
+    ast/Ast.cpp
+    ast/XmlSerializer.cpp
+    ast/detail/Builder.cpp
+    parser.cpp
 )
 
 target_link_libraries(
   ${lib_name}
   PRIVATE
-    CLexer
+    C
     fmt
+    pugixml
 )
+
+

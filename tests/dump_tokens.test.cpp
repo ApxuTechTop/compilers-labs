@@ -20,7 +20,7 @@ TEST(LexerSuite, ValidNumbers) {
 						 "Loc=<1:15>\tFLOAT_CONST '.99'\n"
 						 "Loc=<1:19>\tFLOAT_CONST '1e6'\n"
 						 "Loc=<1:23>\tFLOAT_CONST '14.8e8'\n"
-                         "Loc=<1:30>\tFLOAT_CONST '7.1E-3'\n");
+						 "Loc=<1:30>\tFLOAT_CONST '7.1E-3'\n");
 }
 
 TEST(LexerSuite, ValidStrings) {
