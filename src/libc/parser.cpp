@@ -1,10 +1,11 @@
 
 #include <CLexer.h>
 #include <CParser.h>
+#include <fmt/format.h>
+#include <libc/ast/ScopeChecker.hpp>
 #include <libc/ast/XmlSerializer.hpp>
 #include <libc/ast/detail/Builder.hpp>
 #include <libc/parser.hpp>
-#include <fmt/format.h>
 
 namespace ccompiler {
 
@@ -35,14 +36,14 @@ ParseResult parse(std::istream& in) {
 
 	const auto& errors = error_listener.errors();
 	if (!errors.empty()) {
-		return {errors};
+		return { errors };
 	}
 
 	ast::Document document;
 	ast::detail::Builder builder(document);
 	builder.visit(document_parse_tree);
 
-	return {std::move(document)};
+	return { std::move(document) };
 }
 
 void dump_ast(ast::Document& document, std::ostream& out) {
@@ -54,6 +55,12 @@ void dump_errors(const Errors& errors, std::ostream& out) {
 		out << fmt::format("{}:{} {}\n", error.line, error.column,
 						   error.message);
 	}
+}
+
+bool check_symbols(ast::Document& document, std::ostream& out) {
+	ast::ScopeChecker checker;
+	checker.exec(document, out);
+	return true;
 }
 
 } // namespace ccompiler

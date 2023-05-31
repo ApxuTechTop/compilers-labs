@@ -52,6 +52,7 @@ int main(int argc, char** argv) {
 		if (result.count(dump_ast_opt) > 0) {
 			auto parser_result = ccompiler::parse(input_stream);
 			if (parser_result.errors.empty()) {
+				ccompiler::check_symbols(parser_result.document, std::cout);
 				ccompiler::dump_ast(parser_result.document, std::cout);
 			} else {
 				ccompiler::dump_errors(parser_result.errors, std::cerr);

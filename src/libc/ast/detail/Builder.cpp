@@ -23,24 +23,26 @@ static std::string trim_less_greater(const std::string& str) {
 namespace ccompiler::ast::detail {
 
 std::any Builder::visitDocument(CParser::DocumentContext* context) {
-	auto* value = std::any_cast<Value*>(visitChildren(context));
+	auto* value = std::any_cast<Base*>(visitChildren(context));
 	document.set_value(value);
 	return value;
 }
 
 std::any Builder::visitElements(CParser::ElementsContext* context) {
-	std::vector<Value*> elements;
+	std::vector<Base*> elements;
 	for (const auto& melement : context->element()) {
-		elements.push_back(std::any_cast<Value*>(visit(melement)));
+		elements.push_back(std::any_cast<Base*>(visit(melement)));
 	}
-	return static_cast<Value*>(document.create_node<Elements>(elements));
+	return static_cast<Base*>(document.create_node<Elements>(elements));
 }
 
 std::any Builder::visitIncludeHeader(CParser::IncludeHeaderContext* context) {
 	std::string header_name
 		= trim_less_greater(context->HEADERNAME()->getText());
-	return static_cast<Value*>(
-		document.create_node<IncludeHeader>(header_name));
+	auto* ptr = document.create_node<IncludeHeader>(header_name);
+	ptr->line = context->start->getLine();
+	ptr->column = context->start->getCharPositionInLine();
+	return static_cast<Base*>(ptr);
 }
 
 std::any Builder::visitAnyType(CParser::AnyTypeContext* context) {
@@ -58,138 +60,219 @@ std::any Builder::visitAnyType(CParser::AnyTypeContext* context) {
 			qualifiers.push_back(Type::QualifierType::Pointer);
 		}
 	}
-	return static_cast<Value*>(document.create_node<Type>(
-		std::move(type_name), std::move(qualifiers)));
+	auto* ptr = document.create_node<Type>(std::move(type_name),
+										   std::move(qualifiers));
+	ptr->line = context->start->getLine();
+	ptr->column = context->start->getCharPositionInLine();
+	return static_cast<Base*>(ptr);
 }
 
-std::any Builder::visitFunctionDefine(CParser::FunctionDefineContext* context) {
+std::any
+Builder::visitFunctionDefine(CParser::FunctionDefineContext* context) {
 	std::string function_name = context->functionName()->getText();
-	Value* function_out_type = std::any_cast<Value*>(visit(context->anyType()));
+	Base* function_out_type = std::any_cast<Base*>(visit(context->anyType()));
 	FunctionDeclaration::FunctionParameters parameters;
-	for (const auto& parameter_context : context->functionParameters()->functionParameter()) {
-		parameters.emplace_back(std::any_cast<Value*>(visit(parameter_context->anyType())), parameter_context->varId()->getText());
+	for (const auto& parameter_context :
+		 context->functionParameters()->functionParameter()) {
+		auto& parameter = parameters.emplace_back(
+			std::any_cast<Base*>(visit(parameter_context->anyType())),
+			parameter_context->varId()->getText());
+		parameter.line = parameter_context->start->getLine();
+		parameter.column = parameter_context->start->getCharPositionInLine();
 	}
-	Value* block = nullptr;
+	Base* block = nullptr;
 	if (context->block()) {
-		block = std::any_cast<Value*>(visit(context->block()));
+		block = std::any_cast<Base*>(visit(context->block()));
 	}
-	return static_cast<Value*>(document.create_node<FunctionDeclaration>(function_out_type, std::move(function_name), std::move(parameters), block));
+	auto* ptr = document.create_node<FunctionDeclaration>(
+		function_out_type, std::move(function_name), std::move(parameters),
+		block);
+	ptr->line = context->start->getLine();
+	ptr->column = context->start->getCharPositionInLine();
+	return static_cast<Base*>(ptr);
 }
 
-std::any Builder::visitGlobalInitializing(CParser::GlobalInitializingContext* context) {
+std::any
+Builder::visitGlobalInitializing(CParser::GlobalInitializingContext* context) {
 	return visit(context->varDeclaration());
 }
 
-std::any Builder::visitVarDeclaration(CParser::VarDeclarationContext* context) {
-	Value* var_type = std::any_cast<Value*>(visit(context->anyType()));
+std::any
+Builder::visitVarDeclaration(CParser::VarDeclarationContext* context) {
+	Base* var_type = std::any_cast<Base*>(visit(context->anyType()));
 	VarDeclarations::Declarations declarations;
 	for (const auto& assignment_context : context->varAssignment()) {
 		std::string var_name = assignment_context->varId()->getText();
-		Value* init_expression = nullptr;
+		Base* init_expression = nullptr;
 		if (assignment_context->expression()) {
-			init_expression = std::any_cast<Value*>(visit(assignment_context->expression()));
+			init_expression = std::any_cast<Base*>(
+				visit(assignment_context->expression()));
 		}
-		declarations.emplace_back(var_name, init_expression);
+		auto& declaration
+			= declarations.emplace_back(var_name, init_expression, var_type);
+		declaration.line = assignment_context->start->getLine();
+		declaration.column
+			= assignment_context->start->getCharPositionInLine();
 	}
-	return static_cast<Value*>(document.create_node<VarDeclarations>(var_type, std::move(declarations)));
+	auto* ptr = document.create_node<VarDeclarations>(var_type,
+													  std::move(declarations));
+	ptr->line = context->start->getLine();
+	ptr->column = context->start->getCharPositionInLine();
+	return static_cast<Base*>(ptr);
 }
 
 std::any Builder::visitBlock(CParser::BlockContext* context) {
 	Block::Statements statements;
 	for (const auto& statement_context : context->statement()) {
-		statements.emplace_back(std::any_cast<Value*>(visit(statement_context)));
+		statements.emplace_back(
+			std::any_cast<Base*>(visit(statement_context)));
 	}
-	return static_cast<Value*>(document.create_node<Block>(std::move(statements)));
+	auto* ptr = document.create_node<Block>(std::move(statements));
+	ptr->line = context->start->getLine();
+	ptr->column = context->start->getCharPositionInLine();
+	return static_cast<Base*>(ptr);
 }
 
 std::any Builder::visitBlockState(CParser::BlockStateContext* context) {
 	return visit(context->block());
 }
 std::any Builder::visitDeclState(CParser::DeclStateContext* context) {
-	return static_cast<Value*>(document.create_node<Statement>(std::any_cast<Value*>(visit(context->varDeclaration()))));
+	auto* ptr = document.create_node<Statement>(
+		std::any_cast<Base*>(visit(context->varDeclaration())));
+	ptr->line = context->start->getLine();
+	ptr->column = context->start->getCharPositionInLine();
+	return static_cast<Base*>(ptr);
 }
 std::any Builder::visitExprState(CParser::ExprStateContext* context) {
-	return static_cast<Value*>(document.create_node<Statement>(std::any_cast<Value*>(visit(context->expression()))));
+	auto* ptr = document.create_node<Statement>(
+		std::any_cast<Base*>(visit(context->expression())));
+	ptr->line = context->start->getLine();
+	ptr->column = context->start->getCharPositionInLine();
+	return static_cast<Base*>(ptr);
 }
 std::any Builder::visitEmptyState(CParser::EmptyStateContext*) {
-	return static_cast<Value*>(nullptr);
+	return static_cast<Base*>(nullptr);
 }
 std::any Builder::visitReturnState(CParser::ReturnStateContext* context) {
-	return static_cast<Value*>(document.create_node<Statement>(static_cast<Value*>(document.create_node<ReturnStatement>(std::any_cast<Value*>(visit(context->expression()))))));
+	auto* ptr = static_cast<Base*>(document.create_node<ReturnStatement>(
+		std::any_cast<Base*>(visit(context->expression()))));
+	ptr->line = context->start->getLine();
+	ptr->column = context->start->getCharPositionInLine();
+	return static_cast<Base*>(document.create_node<Statement>(ptr));
 }
 
 std::any Builder::visitPostfixExpr(CParser::PostfixExprContext* context) {
 	Expression::Arguments args;
-	args.emplace_back(std::any_cast<Value*>(visit(context->expression())));
+	args.emplace_back(std::any_cast<Base*>(visit(context->expression())));
 	std::string op_type = context->postfixOperation()->getText() + "int";
-	return static_cast<Value*>(document.create_node<Expression>(std::move(op_type), std::move(args)));
+	auto* ptr = document.create_node<Expression>(std::move(op_type),
+												 std::move(args));
+	ptr->line = context->start->getLine();
+	ptr->column = context->start->getCharPositionInLine();
+	return static_cast<Base*>(ptr);
 }
 std::any Builder::visitPrefixExpr(CParser::PrefixExprContext* context) {
 	Expression::Arguments args;
-	args.emplace_back(std::any_cast<Value*>(visit(context->expression())));
+	args.emplace_back(std::any_cast<Base*>(visit(context->expression())));
 	std::string op_type = context->prefixOperation()->getText();
-	return static_cast<Value*>(document.create_node<Expression>(std::move(op_type), std::move(args)));
+	auto* ptr = document.create_node<Expression>(std::move(op_type),
+												 std::move(args));
+	ptr->line = context->start->getLine();
+	ptr->column = context->start->getCharPositionInLine();
+	return static_cast<Base*>(ptr);
 }
 std::any Builder::visitFunctionExpr(CParser::FunctionExprContext* context) {
 	Expression::Arguments args;
 	std::string function_name = context->varId()->getText();
 	FunctionCall::Arguments function_args;
-	std::cout << "Im here\n";
 	for (const auto& arg_context : context->args) {
-		std::cout << "arg: " << arg_context->getText() << '\n';
-		function_args.emplace_back(std::any_cast<Value*>(visit(arg_context)));
+		function_args.emplace_back(std::any_cast<Base*>(visit(arg_context)));
 	}
-	Value* function = document.create_node<FunctionCall>(std::move(function_name), std::move(function_args));
+	Base* function = document.create_node<FunctionCall>(
+		std::move(function_name), std::move(function_args));
 	args.emplace_back(function);
-	return static_cast<Value*>(document.create_node<Expression>("call", std::move(args)));
+	auto* ptr = document.create_node<Expression>("call", std::move(args));
+	ptr->line = context->start->getLine();
+	ptr->column = context->start->getCharPositionInLine();
+	return static_cast<Base*>(ptr);
 }
 std::any Builder::visitSubscriptExpr(CParser::SubscriptExprContext* context) {
 	Expression::Arguments args;
 	for (const auto& expr_context : context->expression()) {
-		args.emplace_back(std::any_cast<Value*>(visit(expr_context)));
+		args.emplace_back(std::any_cast<Base*>(visit(expr_context)));
 	}
-	return static_cast<Value*>(document.create_node<Expression>("[]", std::move(args)));
+	auto* ptr = document.create_node<Expression>("[]", std::move(args));
+	ptr->line = context->start->getLine();
+	ptr->column = context->start->getCharPositionInLine();
+	return static_cast<Base*>(ptr);
 }
 std::any Builder::visitParensExpr(CParser::ParensExprContext* context) {
 	Expression::Arguments args;
-	args.emplace_back(std::any_cast<Value*>(visit(context->expression())));
-	return static_cast<Value*>(document.create_node<Expression>("()", std::move(args)));
+	args.emplace_back(std::any_cast<Base*>(visit(context->expression())));
+	auto* ptr = document.create_node<Expression>("()", std::move(args));
+	ptr->line = context->start->getLine();
+	ptr->column = context->start->getCharPositionInLine();
+	return static_cast<Base*>(ptr);
 }
 std::any Builder::visitUnaryExpr(CParser::UnaryExprContext* context) {
 	Expression::Arguments args;
-	args.emplace_back(std::any_cast<Value*>(visit(context->expression())));
-	return static_cast<Value*>(document.create_node<Expression>(context->unaryOperation()->getText(), std::move(args)));
+	args.emplace_back(std::any_cast<Base*>(visit(context->expression())));
+	auto* ptr = document.create_node<Expression>(
+		context->unaryOperation()->getText(), std::move(args));
+	ptr->line = context->start->getLine();
+	ptr->column = context->start->getCharPositionInLine();
+	return static_cast<Base*>(ptr);
 }
 std::any Builder::visitBinaryExpr(CParser::BinaryExprContext* context) {
 	Expression::Arguments args;
 	for (const auto& expr_context : context->expression()) {
-		args.emplace_back((std::any_cast<Value*>(visit(expr_context))));
+		args.emplace_back((std::any_cast<Base*>(visit(expr_context))));
 	}
-	return static_cast<Value*>(document.create_node<Expression>(context->binaryOperation()->getText(), std::move(args)));
+	auto* ptr = document.create_node<Expression>(
+		context->binaryOperation()->getText(), std::move(args));
+	ptr->line = context->start->getLine();
+	ptr->column = context->start->getCharPositionInLine();
+	return static_cast<Base*>(ptr);
 }
 std::any Builder::visitTernaryExpr(CParser::TernaryExprContext* context) {
 	Expression::Arguments args;
 	for (const auto& expr_context : context->expression()) {
-		args.emplace_back((std::any_cast<Value*>(visit(expr_context))));
+		args.emplace_back((std::any_cast<Base*>(visit(expr_context))));
 	}
-	return static_cast<Value*>(document.create_node<Expression>("?:", std::move(args)));
+	auto* ptr = document.create_node<Expression>("?:", std::move(args));
+	ptr->line = context->start->getLine();
+	ptr->column = context->start->getCharPositionInLine();
+	return static_cast<Base*>(ptr);
 }
-std::any Builder::visitAssignmentExpr(CParser::AssignmentExprContext* context) {
+std::any
+Builder::visitAssignmentExpr(CParser::AssignmentExprContext* context) {
 	Expression::Arguments args;
 	for (const auto& expr_context : context->expression()) {
-		args.emplace_back((std::any_cast<Value*>(visit(expr_context))));
+		args.emplace_back((std::any_cast<Base*>(visit(expr_context))));
 	}
-	return static_cast<Value*>(document.create_node<Expression>(context->assignmentOperation()->getText(), std::move(args)));
+	auto* ptr = document.create_node<Expression>(
+		context->assignmentOperation()->getText(), std::move(args));
+	ptr->line = context->start->getLine();
+	ptr->column = context->start->getCharPositionInLine();
+	return static_cast<Base*>(ptr);
 }
 std::any Builder::visitNameExpr(CParser::NameExprContext* context) {
 	Expression::Arguments args;
-	args.emplace_back(document.create_node<Variable>(context->varId()->getText()));
-	return static_cast<Value*>(document.create_node<Expression>("var", std::move(args)));
+	args.emplace_back(
+		document.create_node<Variable>(context->varId()->getText()));
+	auto* ptr = document.create_node<Expression>("var", std::move(args));
+	ptr->line = context->start->getLine();
+	ptr->column = context->start->getCharPositionInLine();
+	return static_cast<Base*>(ptr);
 }
 std::any Builder::visitConstExpr(CParser::ConstExprContext* context) {
 	Expression::Arguments args;
-	args.emplace_back(document.create_node<Variable>(context->constValue()->getText()));
-	return static_cast<Value*>(document.create_node<Expression>("literal", std::move(args)));
+	args.emplace_back(
+		document.create_node<Literal>(context->constValue()->getText()));
+	auto* ptr = document.create_node<Expression>("literal", std::move(args));
+	ptr->line = context->start->getLine();
+	ptr->column = context->start->getCharPositionInLine();
+	return static_cast<Base*>(ptr);
 }
 
 } // namespace ccompiler::ast::detail

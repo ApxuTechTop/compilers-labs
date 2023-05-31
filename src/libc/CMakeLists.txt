@@ -15,6 +15,7 @@ target_sources(
     ast/XmlSerializer.cpp
     ast/detail/Builder.cpp
     parser.cpp
+    ast/ScopeChecker.cpp
 )
 
 target_link_libraries(

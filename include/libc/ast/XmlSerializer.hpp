@@ -18,8 +18,9 @@ class XmlSerializer final : public Visitor {
 	void visit(Type& value) override;
 
 	void visit(VarDeclarations& value) override;
+	void visit(VarDeclarations::Declaration& value) override;
 	void visit(Statement& value) override;
-    void visit(ReturnStatement& value) override;
+	void visit(ReturnStatement& value) override;
 	void visit(Block& value) override;
 	void visit(FunctionDeclaration& value) override;
 	void visit(Expression& value) override;

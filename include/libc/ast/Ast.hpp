@@ -4,43 +4,50 @@
 #include <vector>
 
 namespace ccompiler::ast {
-
-class String;
-class Value;
+class Base;
 class Visitor;
 
 class Document final {
   public:
 	template <class T, class... Args> T* create_node(Args&&... args) {
-		static_assert(std::is_base_of_v<Value, T>);
+		static_assert(std::is_base_of_v<Base, T>);
 		values_.emplace_back(std::make_unique<T>(std::forward<Args>(args)...));
 		return dynamic_cast<T*>(values_.back().get());
 	}
 
-	void set_value(Value* value) { value_ = value; }
-	ast::Value* get_value() const { return value_; }
+	void set_value(Base* value) { value_ = value; }
+	ast::Base* get_value() const { return value_; }
 
   private:
-	std::vector<std::unique_ptr<Value>> values_;
-	ast::Value* value_ = nullptr;
+	std::vector<std::unique_ptr<Base>> values_;
+	ast::Base* value_ = nullptr;
 };
 
-class Value {
+class Tokenizable {
   public:
-	virtual ~Value() = default;
+	std::size_t line;
+	std::size_t column;
+};
+
+class Base : public Tokenizable {
+  public:
+	virtual ~Base() = default;
 	virtual void accept(Visitor& visitor) = 0;
 };
 
-class Elements : public Value {
+class Element : public Base {};
+
+class Elements : public Base {
   public:
-	Elements(std::vector<Value*> elements) : elems(std::move(elements)) {}
+	Elements(std::vector<Base*> elements) : elems(std::move(elements)) {}
 	void accept(Visitor& visitor) override;
-	const std::vector<Value*> elements() const {return elems;}
+	const std::vector<Base*> elements() const { return elems; }
+
   private:
-	std::vector<Value*> elems;
+	std::vector<Base*> elems;
 };
 
-class IncludeHeader : public Value {
+class IncludeHeader : public Element {
   public:
 	IncludeHeader(std::string str) : lib_name(std::move(str)) {}
 	std::string& name() { return lib_name; }
@@ -50,7 +57,7 @@ class IncludeHeader : public Value {
 	std::string lib_name;
 };
 
-class Type : public Value {
+class Type : public Base {
   public:
 	enum class QualifierType { Const, Pointer, Volatile, Restrict };
 	using Qualifiers = std::vector<QualifierType>;
@@ -65,49 +72,56 @@ class Type : public Value {
 	Qualifiers type_qualifiers;
 };
 
-class VarDeclarations : public Value {
+class VarDeclarations : public Base {
   public:
-	struct Declaration {
+	struct Declaration : public Base {
 		std::string name;
-		Value* init_expression;
-		Declaration(std::string var_name, Value* init) : name(std::move(var_name)), init_expression(init) {}
+		Base* init_expression;
+		Base* var_type;
+		Base* type() { return var_type; }
+		Declaration(std::string var_name, Base* init, Base* type)
+			: name(std::move(var_name)), init_expression(init),
+			  var_type(type) {}
+		void accept(Visitor& visitor) override;
 	};
 	using Declarations = std::vector<Declaration>;
-	VarDeclarations(Value* type, Declarations declarations)
+	VarDeclarations(Base* type, Declarations declarations)
 		: var_type(type), var_declarations(std::move(declarations)) {}
-	Value* type() { return var_type; }
+	Base* type() { return var_type; }
 	Declarations& declarations() { return var_declarations; }
 	void accept(Visitor& visitor) override;
 
   private:
-	Value* var_type;
+	Base* var_type;
 	Declarations var_declarations;
 };
 
-class Statement : public Value {
+class Statement : public Base {
   public:
-	Statement(Value* value) : some_state(value) {}
+	Statement(Base* value) : some_state(value) {}
 	void accept(Visitor& visitor) override;
-	Value* state() {return some_state;}
+	Base* state() { return some_state; }
+
   private:
-	Value* some_state;
+	Base* some_state;
 };
 
-class ReturnStatement : public Value {
-	public:
-	ReturnStatement(Value* value) : return_expression(value) {}
-	Value* expression() {return return_expression;}
-	void accept(Visitor& visitor) override;
-	private:
-	Value* return_expression;
-};
-class WhileStatement : public Value {};
-class ForStatement : public Value {};
-class SwitchStatement : public Value {};
-
-class Block : public Value {
+class ReturnStatement : public Base {
   public:
-	using Statements = std::vector<Value*>;
+	ReturnStatement(Base* value) : return_expression(value) {}
+	Base* expression() { return return_expression; }
+	void accept(Visitor& visitor) override;
+
+  private:
+	Base* return_expression;
+};
+class WhileStatement : public Base {};
+class ForStatement : public Base {};
+class SwitchStatement : public Base {};
+
+class Block : public Base {
+  public:
+	using Statements = std::vector<Base*>;
 	Block(Statements states) : block_statements(std::move(states)) {}
 	Statements& statements() { return block_statements; }
 	void accept(Visitor& visitor) override;
@@ -116,72 +130,75 @@ class Block : public Value {
 	Statements block_statements;
 };
 
-class FunctionDeclaration : public Value {
+class FunctionDeclaration : public Element {
   public:
-	struct FunctionParameter {
-		Value* type;
+	struct FunctionParameter : public Tokenizable {
+		Base* type;
 		std::string name;
-		FunctionParameter(Value* parameter_type, std::string parameter_name) : type(parameter_type), name(std::move(parameter_name)) {}
+		FunctionParameter(Base* parameter_type, std::string parameter_name)
+			: type(parameter_type), name(std::move(parameter_name)) {}
 	};
 	using FunctionParameters = std::vector<FunctionParameter>;
-	FunctionDeclaration(Value* f_type, std::string f_name,
-						FunctionParameters f_parameters, Value* block)
+	FunctionDeclaration(Base* f_type, std::string f_name,
+						FunctionParameters f_parameters, Base* block)
 		: out_type(f_type), function_name(std::move(f_name)),
 		  function_parameters(std::move(f_parameters)), function_block(block) {
 	}
 	void accept(Visitor& visitor) override;
-	Value* type() {return out_type;}
-	std::string& name() {return function_name;}
-	FunctionParameters& parameters() {return function_parameters;}
-	Value* block() {return function_block;}
+	Base* type() { return out_type; }
+	std::string& name() { return function_name; }
+	FunctionParameters& parameters() { return function_parameters; }
+	Base* block() { return function_block; }
 
   private:
-	Value* out_type;
+	Base* out_type;
 	std::string function_name;
 	FunctionParameters function_parameters;
-	Value* function_block;
+	Base* function_block;
 };
-class Expression : public Value {
+class Expression : public Base {
   public:
-	using Arguments = std::vector<ast::Value*>;
+	using Arguments = std::vector<ast::Base*>;
 	Expression(std::string type, Arguments arguments)
 		: expr_type(std::move(type)), args(std::move(arguments)) {}
 	void accept(Visitor& visitor) override;
-	std::string& type() {return expr_type;}
-	Arguments& arguments() {return args;}
+	std::string& type() { return expr_type; }
+	Arguments& arguments() { return args; }
+
   protected:
 	std::string expr_type;
 	Arguments args;
 };
-class FunctionCall : public Value {
+class FunctionCall : public Base {
   public:
-	using Arguments = std::vector<ast::Value*>;
+	using Arguments = std::vector<ast::Base*>;
 	FunctionCall(std::string name, Arguments arguments)
 		: function_name(std::move(name)), args(std::move(arguments)) {}
 	void accept(Visitor& visitor) override;
-	std::string& name() {return function_name;}
-	Arguments& arguments() {return args;}
+	std::string& name() { return function_name; }
+	Arguments& arguments() { return args; }
+
   private:
 	std::string function_name;
 	Arguments args;
 };
-class Variable : public Value {
+class Variable : public Base {
   public:
 	Variable(std::string name) : var_name(std::move(name)) {}
 	void accept(Visitor& visitor) override;
-	std::string& name() {return var_name;}
+	std::string& name() { return var_name; }
+
   private:
 	std::string var_name;
 };
-class Literal : public Value {
+class Literal : public Base {
   public:
 	Literal(std::string value) : val(std::move(value)) {}
 	void accept(Visitor& visitor) override;
-	std::string& value() {return val;}
+	std::string& value() { return val; }
+
   private:
 	std::string val;
 };
-
-
 
 } // namespace c::ast

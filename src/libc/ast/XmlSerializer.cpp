@@ -34,14 +34,12 @@ void XmlSerializer::visit(IncludeHeader& value) {
 	nodes.pop();
 }
 
-
-
 void XmlSerializer::visit(Type& value) {
-    static const std::unordered_map<Type::QualifierType, const char*> qualifier_map
-	= { { Type::QualifierType::Const, "const" },
-		{ Type::QualifierType::Volatile, "volatile" },
-		{ Type::QualifierType::Restrict, "restrict" },
-		{ Type::QualifierType::Pointer, "pointer" } };
+	static const std::unordered_map<Type::QualifierType, const char*>
+		qualifier_map = { { Type::QualifierType::Const, "const" },
+						  { Type::QualifierType::Volatile, "volatile" },
+						  { Type::QualifierType::Restrict, "restrict" },
+						  { Type::QualifierType::Pointer, "pointer" } };
 	auto node = append_child("type");
 	node.append_attribute("name") = value.name().c_str();
 	for (const auto& qualifier : value.qualifiers()) {
@@ -50,88 +48,88 @@ void XmlSerializer::visit(Type& value) {
 }
 
 void XmlSerializer::visit(VarDeclarations& value) {
-    for (const auto& declaration : value.declarations()) {
-        auto node = append_child("var");
-        nodes.push(node);
-        node.append_attribute("name") = declaration.name.c_str();
-        value.type()->accept(*this);
-        if (declaration.init_expression) {
-            declaration.init_expression->accept(*this);
-        }
-        nodes.pop();
-    }
+	for (auto& declaration : value.declarations()) {
+		declaration.accept(*this);
+	}
+}
+void XmlSerializer::visit(VarDeclarations::Declaration& value) {
+	auto node = append_child("var");
+	nodes.push(node);
+	node.append_attribute("name") = value.name.c_str();
+	value.type()->accept(*this);
+	if (value.init_expression) {
+		value.init_expression->accept(*this);
+	}
+	nodes.pop();
 }
 
-void XmlSerializer::visit(Statement& value) {
-    value.state()->accept(*this);
-}
+void XmlSerializer::visit(Statement& value) { value.state()->accept(*this); }
 
 void XmlSerializer::visit(ReturnStatement& value) {
-    auto node = append_child("return");
-    nodes.push(node);
-    value.expression()->accept(*this);
-    nodes.pop();
+	auto node = append_child("return");
+	nodes.push(node);
+	value.expression()->accept(*this);
+	nodes.pop();
 }
 
 void XmlSerializer::visit(Block& value) {
-    auto node = append_child("block");
-    nodes.push(node);
-    for (const auto& statement : value.statements()) {
-        statement->accept(*this);
-    }
-    nodes.pop();
+	auto node = append_child("block");
+	nodes.push(node);
+	for (const auto& statement : value.statements()) {
+		statement->accept(*this);
+	}
+	nodes.pop();
 }
 
 void XmlSerializer::visit(FunctionDeclaration& value) {
-    auto node = append_child("function");
-    node.append_attribute("name") = value.name().c_str();
-    auto out_type_node = node.append_child("out");
-    nodes.push(out_type_node);
-    value.type()->accept(*this);
-    nodes.pop();
-    auto in_types_node = node.append_child("in");
-    nodes.push(in_types_node);
-    for (const auto& var : value.parameters()) {
-        auto arg_node = append_child("var");
-        arg_node.append_attribute("name") = var.name.c_str();
-        nodes.push(arg_node);
-        var.type->accept(*this);
-        nodes.pop();
-    }
-    nodes.pop();
-    if (value.block() != nullptr) {
-        value.block()->accept(*this);
-    }
-    
+	auto node = append_child("function");
+	node.append_attribute("name") = value.name().c_str();
+	auto out_type_node = node.append_child("out");
+	nodes.push(out_type_node);
+	value.type()->accept(*this);
+	nodes.pop();
+	auto in_types_node = node.append_child("in");
+	nodes.push(in_types_node);
+	for (const auto& var : value.parameters()) {
+		auto arg_node = append_child("var");
+		arg_node.append_attribute("name") = var.name.c_str();
+		nodes.push(arg_node);
+		var.type->accept(*this);
+		nodes.pop();
+	}
+	nodes.pop();
+	if (value.block() != nullptr) {
+		value.block()->accept(*this);
+	}
 }
 
 void XmlSerializer::visit(Expression& value) {
-    auto node = append_child("expression");
-    node.append_attribute("type") = value.type().c_str();
-    for (const auto& arg : value.arguments()) {
-        auto arg_node = node.append_child("arg");
-        nodes.push(arg_node);
-        arg->accept(*this);
-        nodes.pop();
-    }
+	auto node = append_child("expression");
+	node.append_attribute("type") = value.type().c_str();
+	for (const auto& arg : value.arguments()) {
+		auto arg_node = node.append_child("arg");
+		nodes.push(arg_node);
+		arg->accept(*this);
+		nodes.pop();
+	}
 }
 
 void XmlSerializer::visit(FunctionCall& value) {
-    auto node = append_child("call");
-    node.append_attribute("name") = value.name().c_str();
-    for (const auto& arg : value.arguments()) {
-        auto arg_node = node.append_child("arg");
-        nodes.push(arg_node);
-        arg->accept(*this);
-        nodes.pop();
-    }
+	auto node = append_child("call");
+	node.append_attribute("name") = value.name().c_str();
+	for (const auto& arg : value.arguments()) {
+		auto arg_node = node.append_child("arg");
+		nodes.push(arg_node);
+		arg->accept(*this);
+		nodes.pop();
+	}
 }
 
 void XmlSerializer::visit(Variable& value) {
-    append_text(value.name().c_str());
+	append_text(value.name().c_str());
 }
 void XmlSerializer::visit(Literal& value) {
-    append_text(value.value().c_str());
+	append_text(value.value().c_str());
 }
 
 } // namespace ccompiler::ast
