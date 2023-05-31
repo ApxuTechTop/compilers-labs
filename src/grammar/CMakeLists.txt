@@ -1,4 +1,4 @@
-set(lexer_lib_name CLexer)
+set(lexer_lib_name C)
 
 add_library(${lexer_lib_name} STATIC)
 
@@ -9,6 +9,8 @@ antlr_target(
   ${antlr_lexer_target_name}
   ${lexer_lib_name}.g4
   LEXER
+  PARSER
+  VISITOR
 )
 
 include(CompileOptions)

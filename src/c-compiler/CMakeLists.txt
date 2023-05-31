@@ -12,7 +12,7 @@ target_include_directories(${target_name} PRIVATE ${PROJECT_SOURCE_DIR}/include)
 target_link_libraries(${target_name}
     PRIVATE
     libc
-    CLexer
+    C
     fmt
     cxxopts
 )
