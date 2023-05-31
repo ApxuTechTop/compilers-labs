@@ -6,6 +6,7 @@
 namespace ccompiler::ast {
 class Base;
 class Visitor;
+class TypeChecker;
 
 class Document final {
   public:
@@ -71,6 +72,14 @@ class Type : public Base {
 	std::string type_name;
 	Qualifiers type_qualifiers;
 };
+bool operator==(Type& lhs, Type& rhs);
+bool operator!=(Type& lhs, Type& rhs);
+
+class Typeable {
+  public:
+	virtual ~Typeable() = default;
+	virtual Type runtime_type(TypeChecker& visitor) = 0;
+};
 
 class VarDeclarations : public Base {
   public:
@@ -130,13 +139,15 @@ class Block : public Base {
 	Statements block_statements;
 };
 
-class FunctionDeclaration : public Element {
+class FunctionDeclaration : public Element, public Typeable {
   public:
-	struct FunctionParameter : public Tokenizable {
-		Base* type;
+	struct FunctionParameter : public Tokenizable, public Typeable {
+		Base* in_type;
 		std::string name;
 		FunctionParameter(Base* parameter_type, std::string parameter_name)
-			: type(parameter_type), name(std::move(parameter_name)) {}
+			: in_type(parameter_type), name(std::move(parameter_name)) {}
+		Type runtime_type(TypeChecker& visitor) override;
+		Base* type() { return in_type; }
 	};
 	using FunctionParameters = std::vector<FunctionParameter>;
 	FunctionDeclaration(Base* f_type, std::string f_name,
@@ -149,6 +160,7 @@ class FunctionDeclaration : public Element {
 	std::string& name() { return function_name; }
 	FunctionParameters& parameters() { return function_parameters; }
 	Base* block() { return function_block; }
+	Type runtime_type(TypeChecker& visitor) override;
 
   private:
 	Base* out_type;
@@ -156,7 +168,7 @@ class FunctionDeclaration : public Element {
 	FunctionParameters function_parameters;
 	Base* function_block;
 };
-class Expression : public Base {
+class Expression : public Base, public Typeable {
   public:
 	using Arguments = std::vector<ast::Base*>;
 	Expression(std::string type, Arguments arguments)
@@ -164,12 +176,13 @@ class Expression : public Base {
 	void accept(Visitor& visitor) override;
 	std::string& type() { return expr_type; }
 	Arguments& arguments() { return args; }
+	Type runtime_type(TypeChecker& visitor) override;
 
   protected:
 	std::string expr_type;
 	Arguments args;
 };
-class FunctionCall : public Base {
+class FunctionCall : public Base, public Typeable {
   public:
 	using Arguments = std::vector<ast::Base*>;
 	FunctionCall(std::string name, Arguments arguments)
@@ -177,16 +190,18 @@ class FunctionCall : public Base {
 	void accept(Visitor& visitor) override;
 	std::string& name() { return function_name; }
 	Arguments& arguments() { return args; }
+	Type runtime_type(TypeChecker& visitor) override;
 
   private:
 	std::string function_name;
 	Arguments args;
 };
-class Variable : public Base {
+class Variable : public Base, public Typeable {
   public:
 	Variable(std::string name) : var_name(std::move(name)) {}
 	void accept(Visitor& visitor) override;
 	std::string& name() { return var_name; }
+	Type runtime_type(TypeChecker& visitor) override;
 
   private:
 	std::string var_name;
@@ -196,9 +211,31 @@ class Literal : public Base {
 	Literal(std::string value) : val(std::move(value)) {}
 	void accept(Visitor& visitor) override;
 	std::string& value() { return val; }
+	// virtual Type runtime_type() { return { "void", {} }; };
 
-  private:
+  protected:
 	std::string val;
+};
+
+class CharLiteral : public Literal, public Typeable {
+  public:
+	CharLiteral(std::string value) : Literal(std::move(value)) {}
+	Type runtime_type(TypeChecker& visitor) override;
+};
+class StringLiteral : public Literal, public Typeable {
+  public:
+	StringLiteral(std::string value) : Literal(std::move(value)) {}
+	Type runtime_type(TypeChecker& visitor) override;
+};
+class IntegerLiteral : public Literal, public Typeable {
+  public:
+	IntegerLiteral(std::string value) : Literal(std::move(value)) {}
+	Type runtime_type(TypeChecker& visitor) override;
+};
+class FloatLiteral : public Literal, public Typeable {
+  public:
+	FloatLiteral(std::string value) : Literal(std::move(value)) {}
+	Type runtime_type(TypeChecker& visitor) override;
 };
 
 } // namespace c::ast

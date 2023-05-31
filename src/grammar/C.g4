@@ -62,7 +62,11 @@ expression:
 	| constValue #ConstExpr
     ; 
 
-constValue: CHAR_CONST | FLOAT_CONST | INTEGER_CONST | STRING_CONST;
+constValue: charConstValue | floatConstValue | integerConstValue | stringConstValue;
+charConstValue: CHAR_CONST;
+floatConstValue: FLOAT_CONST;
+integerConstValue: INTEGER_CONST;
+stringConstValue: STRING_CONST;
 
 
 
