@@ -1,15 +1,13 @@
 #include <libc/ast/detail/Builder.hpp>
 
-#include <iostream>
-
-// static std::string trim_quotes(const std::string& str) {
-// 	// NOLINTNEXTLINE
-// 	if (str[0] == '"' && str[str.size() - 1] == '"') {
-// 		return str.substr(1, str.size() - 2);
-// 	} else {
-// 		return str;
-// 	}
-// }
+static std::string trim_quotes(const std::string& str) {
+	// NOLINTNEXTLINE
+	if (str[0] == '"' && str[str.size() - 1] == '"') {
+		return str.substr(1, str.size() - 2);
+	} else {
+		return str;
+	}
+}
 
 static std::string trim_less_greater(const std::string& str) {
 	// NOLINTNEXTLINE
@@ -81,7 +79,7 @@ Builder::visitFunctionDefine(CParser::FunctionDefineContext* context) {
 		parameter.column = parameter_context->start->getCharPositionInLine();
 	}
 	Base* block = nullptr;
-	if (context->block()) {
+	if (context->block() != nullptr) {
 		block = std::any_cast<Base*>(visit(context->block()));
 	}
 	auto* ptr = document.create_node<FunctionDeclaration>(
@@ -104,7 +102,7 @@ Builder::visitVarDeclaration(CParser::VarDeclarationContext* context) {
 	for (const auto& assignment_context : context->varAssignment()) {
 		std::string var_name = assignment_context->varId()->getText();
 		Base* init_expression = nullptr;
-		if (assignment_context->expression()) {
+		if (assignment_context->expression() != nullptr) {
 			init_expression = std::any_cast<Base*>(
 				visit(assignment_context->expression()));
 		}
@@ -150,7 +148,7 @@ std::any Builder::visitExprState(CParser::ExprStateContext* context) {
 	ptr->column = context->start->getCharPositionInLine();
 	return static_cast<Base*>(ptr);
 }
-std::any Builder::visitEmptyState(CParser::EmptyStateContext*) {
+std::any Builder::visitEmptyState(CParser::EmptyStateContext* /*context*/) {
 	return static_cast<Base*>(nullptr);
 }
 std::any Builder::visitReturnState(CParser::ReturnStateContext* context) {
@@ -266,9 +264,48 @@ std::any Builder::visitNameExpr(CParser::NameExprContext* context) {
 	return static_cast<Base*>(ptr);
 }
 std::any Builder::visitConstExpr(CParser::ConstExprContext* context) {
+	return visit(context->constValue());
+	// Expression::Arguments args;
+	// args.emplace_back(
+	// 	document.create_node<Literal>(context->constValue()->getText()));
+	// auto* ptr = document.create_node<Expression>("literal",
+	// std::move(args)); ptr->line = context->start->getLine(); ptr->column =
+	// context->start->getCharPositionInLine(); return static_cast<Base*>(ptr);
+}
+
+std::any
+Builder::visitCharConstValue(CParser::CharConstValueContext* context) {
+	Expression::Arguments args;
+	args.emplace_back(document.create_node<CharLiteral>(context->getText()));
+	auto* ptr = document.create_node<Expression>("literal", std::move(args));
+	ptr->line = context->start->getLine();
+	ptr->column = context->start->getCharPositionInLine();
+	return static_cast<Base*>(ptr);
+}
+std::any
+Builder::visitFloatConstValue(CParser::FloatConstValueContext* context) {
+	Expression::Arguments args;
+	args.emplace_back(document.create_node<FloatLiteral>(context->getText()));
+	auto* ptr = document.create_node<Expression>("literal", std::move(args));
+	ptr->line = context->start->getLine();
+	ptr->column = context->start->getCharPositionInLine();
+	return static_cast<Base*>(ptr);
+}
+std::any
+Builder::visitIntegerConstValue(CParser::IntegerConstValueContext* context) {
 	Expression::Arguments args;
 	args.emplace_back(
-		document.create_node<Literal>(context->constValue()->getText()));
+		document.create_node<IntegerLiteral>(context->getText()));
+	auto* ptr = document.create_node<Expression>("literal", std::move(args));
+	ptr->line = context->start->getLine();
+	ptr->column = context->start->getCharPositionInLine();
+	return static_cast<Base*>(ptr);
+}
+std::any
+Builder::visitStringConstValue(CParser::StringConstValueContext* context) {
+	Expression::Arguments args;
+	args.emplace_back(
+		document.create_node<StringLiteral>(trim_quotes(context->getText())));
 	auto* ptr = document.create_node<Expression>("literal", std::move(args));
 	ptr->line = context->start->getLine();
 	ptr->column = context->start->getCharPositionInLine();

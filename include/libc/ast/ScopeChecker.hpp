@@ -4,6 +4,7 @@
 #include <ostream>
 #include <stack>
 #include <unordered_map>
+#include <variant>
 
 namespace ccompiler::ast {
 
@@ -29,29 +30,37 @@ class ScopeChecker final : public Visitor {
 	class Symbol {
 	  private:
 	  public:
-		Symbol(VarDeclarations::Declaration& value) {
-			line = value.line;
-			column = value.column;
-			name = value.name;
+		Symbol(VarDeclarations::Declaration& value)
+			: ref(value) /*type(*dynamic_cast<Type*>(value.type()))*/ {
+			// line = value.line;
+			// column = value.column;
+			// name = value.name;
 		}
-		Symbol(FunctionDeclaration& value) {
-			line = value.line;
-			column = value.column;
-			name = value.name();
+		Symbol(FunctionDeclaration& value)
+			: ref(value) /*type(*dynamic_cast<Type*>(value.type()))*/ {
+			// line = value.line;
+			// column = value.column;
+			// name = value.name();
 		}
-		Symbol(FunctionDeclaration::FunctionParameter& value) {
-			line = value.line;
-			column = value.column;
-			name = value.name;
+		Symbol(FunctionDeclaration::FunctionParameter& value)
+			: ref(value) /*type(*dynamic_cast<Type*>(value.type))*/ {
+			// line = value.line;
+			// column = value.column;
+			// name = value.name;
 		}
-		std::size_t line;
-		std::size_t column;
-		std::string name;
+		std::variant<VarDeclarations::Declaration, FunctionDeclaration,
+					 FunctionDeclaration::FunctionParameter>
+			ref;
+		// std::size_t line;
+		// std::size_t column;
+		// std::string name;
+		// Type type;
 	};
 	class Scope {
 	  public:
 		std::unordered_map<std::string, Symbol> symbols;
 	};
+	// std::vector<Scope>& get_scopes() { return scopes; }
 
   private:
 	std::vector<std::string> errors;

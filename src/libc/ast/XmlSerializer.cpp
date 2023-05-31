@@ -57,7 +57,7 @@ void XmlSerializer::visit(VarDeclarations::Declaration& value) {
 	nodes.push(node);
 	node.append_attribute("name") = value.name.c_str();
 	value.type()->accept(*this);
-	if (value.init_expression) {
+	if (value.init_expression != nullptr) {
 		value.init_expression->accept(*this);
 	}
 	nodes.pop();
@@ -90,11 +90,11 @@ void XmlSerializer::visit(FunctionDeclaration& value) {
 	nodes.pop();
 	auto in_types_node = node.append_child("in");
 	nodes.push(in_types_node);
-	for (const auto& var : value.parameters()) {
+	for (auto& var : value.parameters()) {
 		auto arg_node = append_child("var");
 		arg_node.append_attribute("name") = var.name.c_str();
 		nodes.push(arg_node);
-		var.type->accept(*this);
+		var.type()->accept(*this);
 		nodes.pop();
 	}
 	nodes.pop();

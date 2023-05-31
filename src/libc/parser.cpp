@@ -14,7 +14,8 @@ class StreamErrorListener : public antlr4::BaseErrorListener {
 	Errors errs;
 
   public:
-	void syntaxError(antlr4::Recognizer*, antlr4::Token*, std::size_t line,
+	void syntaxError(antlr4::Recognizer* /*recognizer*/,
+					 antlr4::Token* /*offendingSymbol*/, std::size_t line,
 					 std::size_t column, const std::string& message,
 					 std::exception_ptr /*e*/) override {
 		errs.emplace_back(line, column, message);

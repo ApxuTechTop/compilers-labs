@@ -43,6 +43,14 @@ class Builder final : public CBaseVisitor {
 	visitAssignmentExpr(CParser::AssignmentExprContext* context) override;
 	std::any visitNameExpr(CParser::NameExprContext* context) override;
 	std::any visitConstExpr(CParser::ConstExprContext* context) override;
+	std::any
+	visitCharConstValue(CParser::CharConstValueContext* context) override;
+	std::any
+	visitFloatConstValue(CParser::FloatConstValueContext* context) override;
+	std::any visitIntegerConstValue(
+		CParser::IntegerConstValueContext* context) override;
+	std::any
+	visitStringConstValue(CParser::StringConstValueContext* context) override;
 };
 
 } // namespace ccompiler::ast::detail
